@@ -5,7 +5,7 @@
 
 "Design a lightweight real-time gesture-based control system for browser navigation aimed at accessibility enhancement for individuals with motor disabilities."
 
-##Project Overview:
+## Project Overview:
 Develop a webcam-based gesture recognition system that maps simple hand gestures (like swipe left/right, thumbs up/down, etc.) to common browser actions such as:
 
 Going back or forward in history
@@ -18,11 +18,11 @@ Refreshing page
 
 This system would provide an alternative interface for users with limited mobility, helping them interact with the web without using a keyboard or mouse.
 
-##Unique Ideology:
+## Unique Ideology:
 
 Unlike typical gesture recognition projects, this one focuses on low-resource environments, using lightweight models or OpenCV + MediaPipe, and emphasizes practical daily utility in web navigation — something rarely targeted in CV projects.
 
-##Core Features:
+## Core Features:
 
 Real-time webcam capture
 
@@ -34,7 +34,7 @@ System that hooks into browser events (with a simple browser extension or automa
 
 Minimal UI to display detected gesture + action
 
-##Tools You Can Use:
+## Tools You Can Use:
 
 Python + OpenCV + MediaPipe (for gesture detection)
 
@@ -42,7 +42,7 @@ Flask/FastAPI (for bridging gesture recognition to browser)
 
 pyautogui / Selenium / Puppeteer (for browser control simulation)
 
-##Optional: Create a tiny browser extension to send commands
+## Optional: Create a tiny browser extension to send commands
 
 Stretch Goals (if time permits):
 
