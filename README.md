@@ -53,3 +53,40 @@ Voice feedback for actions taken
 Support for more gestures (pinch, circle, etc.)
 
 Cross-platform support
+
+
+## streching goals
+
+Refine your gesture detection accuracy
+
+Add thresholds or confidence scores to reduce false positives
+Implement a small delay/cooldown between gesture activations to prevent accidental triggers
+Consider adding visual feedback when a gesture is recognized
+
+
+Expand functionality
+
+Add more complex gestures for additional browser actions (zoom in/out, switch tabs, etc.)
+Create customizable gesture mappings so users can set their preferred gestures
+Implement a "gesture combo" system for more advanced operations
+
+
+Improve the user experience
+
+Add a calibration system that adapts to different users' hand sizes and gestures
+Implement a "learning mode" that helps users practice gestures
+Create an on-screen guide showing available gestures
+
+
+Handle edge cases
+
+Implement proper error handling for when hand tracking fails
+Add lighting and background adaptability
+Consider how to handle multiple hands in frame
+
+
+Performance optimization
+
+Profile your code to identify and fix any performance bottlenecks
+Reduce CPU/memory usage for smoother operation
+Implement frame skipping if necessary for real-time performance

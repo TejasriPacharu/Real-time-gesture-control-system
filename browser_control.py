@@ -5,6 +5,7 @@ import pyautogui
 import time
 from enum import IntEnum
 
+
 # Disable PyAutoGUI fail-safe
 pyautogui.FAILSAFE = False
 
@@ -115,6 +116,70 @@ class HandRecognizer:
         dist = np.sqrt(dist)
         return dist * sign
 
+    def get_gesture(self):
+        """
+        Determine the current hand gesture with confidence threshold
+
+        Returns:
+        Gest: Detected gesture
+        """
+        if self.hand_result is None:
+            return Gest.PALM
+
+        # First check for predefined gestures
+
+        # Check for thumbs up/down
+        if self.detect_thumbs_up():
+            current_gesture = Gest.THUMBS_UP
+        elif self.detect_thumbs_down():
+            current_gesture = Gest.THUMBS_DOWN
+        else:
+            # Check for swipe gestures
+            swipe_gesture = self.detect_swipe()
+            if swipe_gesture:
+                current_gesture = swipe_gesture
+            # Default to finger state based gesture
+            else:
+                # Check for pinch gesture
+                if self.finger in [Gest.LAST3, Gest.LAST4] and self.get_dist([8, 4]) < 0.05:
+                    if self.hand_label == HLabel.MINOR:
+                        current_gesture = Gest.PINCH_MINOR
+                    else:
+                        current_gesture = Gest.PINCH_MAJOR
+                # Check for V gesture
+                elif Gest.FIRST2 == self.finger:
+                    point = [[8, 12], [5, 9]]
+                    dist1 = self.get_dist(point[0])
+                    dist2 = self.get_dist(point[1])
+                    ratio = dist1/dist2
+                    if ratio > 1.7:
+                        current_gesture = Gest.V_GEST
+                    else:
+                        if self.get_dz([8, 12]) < 0.1:
+                            current_gesture = Gest.TWO_FINGER_CLOSED
+                        else:
+                            current_gesture = Gest.MID
+                else:
+                    current_gesture = self.finger
+
+        # Handle gesture stabilization to reduce flickering
+        if current_gesture == self.prev_gesture:
+            self.frame_count += 1
+        else:
+            self.frame_count = 0
+
+        self.prev_gesture = current_gesture
+
+        # Only return gesture if it's been stable for several frames
+        # Increased the frame threshold for better confidence
+        if self.frame_count > 6:  # Increased from 4 to 6
+            self.ori_gesture = current_gesture
+            return self.ori_gesture
+        elif self.frame_count > 2:  # Return the original gesture if somewhat stable
+            return self.ori_gesture
+        else:
+            return None  # Return None if not confident enough
+
     def get_dist(self, point):
         """
         Calculate Euclidean distance between landmarks
@@ -179,6 +244,7 @@ class HandRecognizer:
             if ratio > 0.5:
                 self.finger = self.finger | 1
 
+
     def detect_thumbs_up(self):
         """
         Detect thumbs up gesture
@@ -204,13 +270,12 @@ class HandRecognizer:
 
         return thumb_up and index_folded and middle_folded and ring_folded and pinky_folded
 
+
     def detect_thumbs_down(self):
         """
-        Detect thumbs down gesture
 
-        Returns:
-        bool: True if thumbs down detected
         """
+
         if self.hand_result is None:
             return False
 
@@ -228,6 +293,7 @@ class HandRecognizer:
         pinky_folded = self.hand_result.landmark[20].y > self.hand_result.landmark[17].y
 
         return thumb_down and index_folded and middle_folded and ring_folded and pinky_folded
+
 
     def detect_swipe(self):
         """
@@ -268,67 +334,6 @@ class HandRecognizer:
             else:
                 return Gest.SWIPE_UP
 
-    def get_gesture(self):
-        """
-        Determine the current hand gesture
-
-        Returns:
-        Gest: Detected gesture
-        """
-        if self.hand_result is None:
-            return Gest.PALM
-
-        # First check for predefined gestures
-
-        # Check for thumbs up/down
-        if self.detect_thumbs_up():
-            current_gesture = Gest.THUMBS_UP
-        elif self.detect_thumbs_down():
-            current_gesture = Gest.THUMBS_DOWN
-        else:
-            # Check for swipe gestures
-            swipe_gesture = self.detect_swipe()
-            if swipe_gesture:
-                current_gesture = swipe_gesture
-            # Default to finger state based gesture
-            else:
-                # Check for pinch gesture
-                if self.finger in [Gest.LAST3, Gest.LAST4] and self.get_dist([8, 4]) < 0.05:
-                    if self.hand_label == HLabel.MINOR:
-                        current_gesture = Gest.PINCH_MINOR
-                    else:
-                        current_gesture = Gest.PINCH_MAJOR
-                # Check for V gesture
-                elif Gest.FIRST2 == self.finger:
-                    point = [[8, 12], [5, 9]]
-                    dist1 = self.get_dist(point[0])
-                    dist2 = self.get_dist(point[1])
-                    ratio = dist1/dist2
-                    if ratio > 1.7:
-                        current_gesture = Gest.V_GEST
-                    else:
-                        if self.get_dz([8, 12]) < 0.1:
-                            current_gesture = Gest.TWO_FINGER_CLOSED
-                        else:
-                            current_gesture = Gest.MID
-                else:
-                    current_gesture = self.finger
-
-        # Handle gesture stabilization to reduce flickering
-        if current_gesture == self.prev_gesture:
-            self.frame_count += 1
-        else:
-            self.frame_count = 0
-
-        self.prev_gesture = current_gesture
-
-        # Update gesture only if it's been stable for several frames
-        if self.frame_count > 4:
-            self.ori_gesture = current_gesture
-
-        return self.ori_gesture
-
-
 class BrowserController:
     """
     Controller for browser actions based on hand gestures
@@ -362,15 +367,73 @@ class BrowserController:
         self.last_action_time = 0
         self.action_cooldown = 1.0  # seconds
 
+    def detect_browser(self):
+        """
+        Detect which browser is currently active to use appropriate shortcuts
+
+        try:
+            # This uses pyautogui to get the active window title
+            # Note: requires pygetwindow package
+            active_window = gw.getActiveWindow()
+            if active_window:
+                title = active_window.title.lower()
+
+                # Check for common browser names in the window title
+                if 'chrome' in title:
+                    return 'chrome'
+                elif 'firefox' in title:
+                    return 'firefox'
+                elif 'edge' in title:
+                    return 'edge'
+                elif 'safari' in title:
+                    return 'safari'
+                else:
+                    return 'unknown'
+        except:
+            # If we can't determine the browser, default to common shortcuts
+
+        """
+        return 'unknown'
+
+    def test_browser_actions(self):
+        """Test all browser control actions"""
+        print("Testing browser controls...")
+        time.sleep(1)
+        print("Opening new tab...")
+        self.new_tab()
+        time.sleep(2)
+        print("Refreshing page...")
+        self.refresh_page()
+        time.sleep(2)
+        print("Going back...")
+        self.browser_back()
+        time.sleep(2)
+        print("Going forward...")
+        self.browser_forward()
+        time.sleep(2)
+        print("Closing tab...")
+        self.close_tab()
+        print("Test complete.")
+
     def browser_back(self):
         """Navigate back in browser history"""
-        print("Action: Going back")
-        pyautogui.hotkey('alt', 'left')
+        print("Action: Going back - sending Alt+Left")
+        try:
+                # Alternative methods
+            pyautogui.hotkey('alt', 'left')
+                # If that doesn't work, try browser-specific shortcuts
+                # pyautogui.hotkey('backspace')  # Alternative for some browsers
+        except Exception as e:
+            print(f"Error executing back command: {e}")
 
     def browser_forward(self):
         """Navigate forward in browser history"""
-        print("Action: Going forward")
-        pyautogui.hotkey('alt', 'right')
+        print("Action: Going forward - sending Alt+Right")
+        try:
+            pyautogui.hotkey('alt', 'right')
+                # Alternative: pyautogui.hotkey('shift', 'backspace')
+        except Exception as e:
+            print(f"Error executing forward command: {e}")
 
     def scroll_up(self):
         """Scroll page up"""
@@ -384,18 +447,52 @@ class BrowserController:
 
     def new_tab(self):
         """Open a new tab"""
-        print("Action: Opening new tab")
-        pyautogui.hotkey('ctrl', 't')
+        print("Action: Opening new tab - sending Ctrl+T")
+        try:
+                # Try pressing keys with slight delay between them
+            pyautogui.keyDown('ctrl')
+            pyautogui.press('t')
+            pyautogui.keyUp('ctrl')
+        except Exception as e:
+            print(f"Error opening new tab: {e}")
 
     def close_tab(self):
         """Close the current tab"""
-        print("Action: Closing tab")
-        pyautogui.hotkey('ctrl', 'w')
+        print("Action: Closing tab - sending Ctrl+W")
+        try:
+            pyautogui.keyDown('ctrl')
+            pyautogui.press('w')
+            pyautogui.keyUp('ctrl')
+        except Exception as e:
+            print(f"Error closing tab: {e}")
 
     def refresh_page(self):
         """Refresh the current page"""
-        print("Action: Refreshing page")
-        pyautogui.hotkey('f5')
+        print("Action: Refreshing page - sending F5")
+        try:
+                # Alternative:
+            pyautogui.keyDown('ctrl')
+            pyautogui.press('r')
+            pyautogui.keyUp('ctrl')
+        except Exception as e:
+            print(f"Error refreshing page: {e}")
+
+    def zoom_in(self):
+        """
+           Zoom in on the page
+        """
+        print("Action: Zooming In")
+        pyautogui.hotkey('ctrl', '+')
+
+    def zoom_out(self):
+        """Zoom out on the page"""
+        print("Action: Zooming out")
+        pyautogui.hotkey('ctrl', '-')
+
+    def switch_tab(self):
+        """Switch to the next tab"""
+        print("Action: Switching to next tab")
+        pyautogui.hotkey('ctrl', 'tab')
 
     def execute_gesture_action(self, gesture):
         """
@@ -414,10 +511,30 @@ class BrowserController:
             return False
 
         if gesture in self.gesture_actions:
+            try:
+                if gesture in [Gest.SWIPE_LEFT, Gest.SWIPE_RIGHT, Gest.THUMBS_UP,
+                                          Gest.THUMBS_DOWN, Gest.V_GEST]:
+
+                    browser = self.detect_browser()
+                    if browser == 'unknown':
+                        print("Warning: No browser detected for browser-specific action")
+                                    # Could display a notification to the user here
+
             # Execute the action associated with the gesture
-            self.gesture_actions[gesture]()
-            self.last_action_time = current_time
-            return True
+                self.gesture_actions[gesture]()
+                self.last_action_time = current_time
+                return True
+            except Exception as e:
+                print(f"Error executing action: {e}")
+
+                if hasattr(self, f"{gesture.name.lower()}_fallback"):
+                    try:
+                        getattr(self, f"{gesture.name.lower()}_fallback")()
+                        return True
+                    except:
+                        return False
+
+                return False
 
         return False
 

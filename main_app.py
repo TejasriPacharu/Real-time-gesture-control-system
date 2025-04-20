@@ -59,9 +59,19 @@ class GestureControlApp:
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
 
+
+
         # Top control frame
         control_frame = ttk.Frame(main_frame, padding="5")
         control_frame.pack(fill=tk.X)
+
+        # Add test button
+        self.test_btn = ttk.Button(
+                control_frame,
+                text="Test Browser Controls",
+                command=self.test_browser_controls
+            )
+        self.test_btn.pack(side=tk.LEFT, padx=5)
 
         # Toggle button
         self.toggle_btn = ttk.Button(
@@ -78,6 +88,15 @@ class GestureControlApp:
             foreground="red"
         )
         self.status_label.pack(side=tk.LEFT, padx=10)
+
+        # Add browser status next to system status
+        self.browser_label = ttk.Label(
+                control_frame,
+                text="Browser: Not detected",
+                foreground="orange"
+            )
+        self.browser_label.pack(side=tk.LEFT, padx=10)
+
 
         # Middle split frame for video and log
         middle_frame = ttk.Frame(main_frame)
@@ -128,6 +147,12 @@ class GestureControlApp:
             ttk.Label(gesture_frame, text=gesture).grid(row=i+2, column=0, padx=5, pady=2, sticky="w")
             ttk.Label(gesture_frame, text=action).grid(row=i+2, column=1, padx=5, pady=2, sticky="w")
 
+    def test_browser_controls(self):
+        """Test browser control functions"""
+        self.log_message("Testing browser controls...")
+        self.browser_controller.test_browser_actions()
+        self.log_message("Test complete. Check console for details.")
+
     def toggle_system(self):
         """Toggle the gesture control system on/off"""
         if self.is_running:
@@ -151,24 +176,20 @@ class GestureControlApp:
     def run_gesture_control(self):
         """Run the gesture control system in a separate thread"""
         self.browser_controller.running = True
+        frame_count = 0
 
         while self.is_running and not self.is_closing:
             # Capture frame-by-frame
             ret, frame = self.cap.read()
-
             if not ret:
                 self.log_message("Error: Failed to capture image")
                 break
-
             # Flip the image horizontally for a more natural feel
             frame = cv2.flip(frame, 1)
-
             # Convert BGR to RGB for MediaPipe
             rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
             # Process the frame with MediaPipe Hands
             results = self.hands.process(rgb_frame)
-
             # Draw hand landmarks on the frame
             if results.multi_hand_landmarks:
                 for hand_landmarks in results.multi_hand_landmarks:
@@ -180,6 +201,18 @@ class GestureControlApp:
 
             # Process hand landmarks and detect gestures
             detected_gesture = self.browser_controller.process_hands(results)
+
+            # Detect browser periodically (every 30 frames)
+            frame_count += 1
+            if frame_count % 30 == 0:
+                try:
+                    browser = self.browser_controller.detect_browser()
+                    if browser != 'unknown':
+                        self.update_browser_status(f"Browser: {browser.title()}")
+                    else:
+                        self.update_browser_status("Browser: Not detected")
+                except Exception as e:
+                    self.log_message(f"Error detecting browser: {e}")
 
             # Show gesture name on frame if detected
             if detected_gesture:
@@ -195,10 +228,8 @@ class GestureControlApp:
                         (0, 255, 0),
                         2
                     )
-
                     # Log the detected gesture
                     self.log_message(f"Detected: {gesture_name}")
-
                     # Execute the action
                     success = self.browser_controller.execute_gesture_action(detected_gesture)
                     if success:
@@ -207,7 +238,6 @@ class GestureControlApp:
                         self.log_message(f"Executed action for: {gesture_name}")
                 except Exception as e:
                     self.log_message(f"Error processing gesture: {e}")
-
             # Display the system status
             cv2.putText(
                 frame,
@@ -218,14 +248,19 @@ class GestureControlApp:
                 (0, 255, 0),
                 2
             )
-
             # Update the video display
             self.update_video(frame)
-
             # Sleep briefly to reduce CPU usage
             time.sleep(0.01)
-
         self.browser_controller.running = False
+
+    def update_browser_status(self, status):
+        """Update the browser status label"""
+        self.browser_label.config(text=status)
+        if "Not detected" in status:
+            self.browser_label.config(foreground="orange")
+        else:
+            self.browser_label.config(foreground="blue")
 
     def update_video(self, frame):
         """Update the video display with the current frame"""
@@ -272,6 +307,8 @@ class GestureControlApp:
 
         self.hands.close()
         self.root.destroy()
+
+
 
 def main():
     # Create the main application window
