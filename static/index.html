@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Browser Gesture Control</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }
+            .container {
+                max-width: 1000px;
+                margin: 0 auto;
+                background-color: white;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                text-align: center;
+                color: #333;
+            }
+            .video-container {
+                display: flex;
+                justify-content: center;
+                margin: 20px 0;
+            }
+            #video-feed {
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                max-width: 100%;
+                height: auto;
+            }
+            .controls {
+                display: flex;
+                justify-content: center;
+                gap: 10px;
+                margin-bottom: 20px;
+            }
+            button {
+                padding: 10px 15px;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: bold;
+            }
+            .start-btn {
+                background-color: #4caf50;
+                color: white;
+            }
+            .stop-btn {
+                background-color: #f44336;
+                color: white;
+            }
+            .test-btn {
+                background-color: #2196f3;
+                color: white;
+            }
+            .status {
+                padding: 10px;
+                border-radius: 4px;
+                text-align: center;
+                margin-bottom: 20px;
+            }
+            .status.enabled {
+                background-color: #e8f5e9;
+                color: #2e7d32;
+                border: 1px solid #a5d6a7;
+            }
+            .status.disabled {
+                background-color: #ffebee;
+                color: #c62828;
+                border: 1px solid #ef9a9a;
+            }
+            .log-container {
+                height: 150px;
+                overflow-y: auto;
+                border: 1px solid #ddd;
+                padding: 10px;
+                border-radius: 4px;
+                background-color: #f9f9f9;
+                margin-bottom: 20px;
+            }
+            .log-entry {
+                margin-bottom: 5px;
+                padding: 3px 0;
+                border-bottom: 1px solid #eee;
+            }
+            .timestamp {
+                color: #666;
+                font-size: 0.8em;
+                margin-right: 5px;
+            }
+            .gesture-info {
+                font-weight: bold;
+                color: #2196f3;
+            }
+            .gesture-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-top: 20px;
+            }
+            .gesture-table th,
+            .gesture-table td {
+                padding: 10px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }
+            .gesture-table th {
+                background-color: #f5f5f5;
+                font-weight: bold;
+            }
+            .gesture-table tr:hover {
+                background-color: #f9f9f9;
+            }
+            @media (max-width: 768px) {
+                .container {
+                    padding: 10px;
+                }
+                .controls {
+                    flex-direction: column;
+                    align-items: center;
+                }
+                button {
+                    width: 100%;
+                    margin-bottom: 10px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Browser Gesture Control</h1>
+
+            <div class="status disabled" id="status-indicator">
+                System: Disabled
+            </div>
+
+            <div class="controls">
+                <button class="start-btn" id="start-btn">
+                    Enable Gesture Control
+                </button>
+                <button class="stop-btn" id="stop-btn" disabled>
+                    Disable Gesture Control
+                </button>
+                <button class="test-btn" id="test-btn">
+                    Test Browser Controls
+                </button>
+            </div>
+
+            <div class="video-container">
+                <img
+                    id="video-feed"
+                    src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAoAAAAHgAQMAAAAPH06nAAAAA1BMVEXm5uTdaAJSAAAASElEQVR42u3BMQEAAADCIPuntsROYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOweEogAB9YHlQwAAAABJRU5ErkJggg=="
+                    alt="Camera Feed"
+                    width="640"
+                    height="480"
+                />
+            </div>
+
+            <h2>Activity Log</h2>
+            <div class="log-container" id="log-container">
+                <!-- Log entries will be added here dynamically -->
+            </div>
+
+            <h2>Gesture Reference</h2>
+            <table class="gesture-table">
+                <thead>
+                    <tr>
+                        <th>Gesture</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Swipe Left</td>
+                        <td>Go Back</td>
+                    </tr>
+                    <tr>
+                        <td>Swipe Right</td>
+                        <td>Go Forward</td>
+                    </tr>
+                    <tr>
+                        <td>Swipe Up</td>
+                        <td>Scroll Up</td>
+                    </tr>
+                    <tr>
+                        <td>Swipe Down</td>
+                        <td>Scroll Down</td>
+                    </tr>
+                    <tr>
+                        <td>Thumbs Up</td>
+                        <td>New Tab</td>
+                    </tr>
+                    <tr>
+                        <td>Thumbs Down</td>
+                        <td>Close Tab</td>
+                    </tr>
+                    <tr>
+                        <td>V Gesture</td>
+                        <td>Refresh Page</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <script>
+            // DOM elements
+            const videoFeed = document.getElementById("video-feed");
+            const startBtn = document.getElementById("start-btn");
+            const stopBtn = document.getElementById("stop-btn");
+            const testBtn = document.getElementById("test-btn");
+            const statusIndicator = document.getElementById("status-indicator");
+            const logContainer = document.getElementById("log-container");
+
+            // WebSocket connection
+            let ws = null;
+            let isConnected = false;
+            let isRunning = false;
+
+            // Function to add a log entry
+            function addLogEntry(message, isGesture = false) {
+                const logEntry = document.createElement("div");
+                logEntry.className = "log-entry";
+
+                const timestamp = document.createElement("span");
+                timestamp.className = "timestamp";
+                timestamp.textContent = new Date().toLocaleTimeString();
+
+                const content = document.createElement("span");
+                content.className = isGesture ? "gesture-info" : "";
+                content.textContent = message;
+
+                logEntry.appendChild(timestamp);
+                logEntry.appendChild(content);
+
+                logContainer.appendChild(logEntry);
+
+                // Auto-scroll to bottom
+                logContainer.scrollTop = logContainer.scrollHeight;
+
+                // Limit the number of log entries (keep the last 100)
+                if (logContainer.children.length > 100) {
+                    logContainer.removeChild(logContainer.children[0]);
+                }
+            }
+
+            // Function to connect to WebSocket
+            function connectWebSocket() {
+                // Determine the WebSocket URL based on the current page URL
+                const protocol =
+                    window.location.protocol === "https:" ? "wss:" : "ws:";
+                const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+                ws = new WebSocket(wsUrl);
+
+                ws.onopen = () => {
+                    isConnected = true;
+                    addLogEntry("Connected to server");
+                };
+
+                ws.onclose = () => {
+                    isConnected = false;
+                    isRunning = false;
+                    updateUI();
+                    addLogEntry("Disconnected from server");
+
+                    // Try to reconnect after 3 seconds
+                    setTimeout(connectWebSocket, 3000);
+                };
+
+                ws.onerror = (error) => {
+                    console.error("WebSocket error:", error);
+                    addLogEntry("Error connecting to server");
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+
+                        // Handle different message types
+                        if (data.type === "connection_established") {
+                            addLogEntry(data.message);
+                        } else if (data.type === "test_complete") {
+                            addLogEntry(data.message);
+                        } else if (data.error) {
+                            addLogEntry(`Error: ${data.error}`);
+                        } else if (data.frame) {
+                            // Update the video feed
+                            videoFeed.src = `data:image/jpeg;base64,${data.frame}`;
+
+                            // If gesture information is included, log it
+                            if (data.gesture) {
+                                const gesture = data.gesture.gesture;
+                                const executed = data.gesture.action_executed;
+
+                                let message = `Detected: ${gesture}`;
+                                if (executed) {
+                                    message += " (Action executed)";
+                                }
+
+                                addLogEntry(message, true);
+                            }
+                        }
+                    } catch (error) {
+                        console.error(
+                            "Error parsing WebSocket message:",
+                            error,
+                        );
+                    }
+                };
+            }
+
+            // Function to update UI based on current state
+            function updateUI() {
+                if (isRunning) {
+                    statusIndicator.className = "status enabled";
+                    statusIndicator.textContent = "System: Enabled";
+                    startBtn.disabled = true;
+                    stopBtn.disabled = false;
+                } else {
+                    statusIndicator.className = "status disabled";
+                    statusIndicator.textContent = "System: Disabled";
+                    startBtn.disabled = false;
+                    stopBtn.disabled = true;
+                }
+
+                // Disable test button if not connected
+                testBtn.disabled = !isConnected;
+            }
+
+            // Event handlers for buttons
+            startBtn.addEventListener("click", () => {
+                if (!isConnected) {
+                    connectWebSocket();
+                    // Wait a bit for the connection to establish
+                    setTimeout(() => {
+                        if (isConnected) {
+                            startGestureControl();
+                        }
+                    }, 1000);
+                } else {
+                    startGestureControl();
+                }
+            });
+
+            stopBtn.addEventListener("click", () => {
+                if (isConnected && ws) {
+                    ws.send(
+                        JSON.stringify({
+                            type: "stop",
+                        }),
+                    );
+                    isRunning = false;
+                    updateUI();
+                    addLogEntry("Gesture control stopped");
+                }
+            });
+
+            testBtn.addEventListener("click", () => {
+                if (isConnected && ws) {
+                    ws.send(
+                        JSON.stringify({
+                            type: "test_actions",
+                        }),
+                    );
+                    addLogEntry("Testing browser actions...");
+                }
+            });
+
+            // Function to start gesture control
+            function startGestureControl() {
+                if (isConnected && ws) {
+                    ws.send(
+                        JSON.stringify({
+                            type: "start",
+                        }),
+                    );
+                    isRunning = true;
+                    updateUI();
+                    addLogEntry("Gesture control started");
+                }
+            }
+
+            // Initialize connection when page loads
+            document.addEventListener("DOMContentLoaded", () => {
+                addLogEntry("Initializing...");
+                connectWebSocket();
+                updateUI();
+            });
+
+            // Handle page unload to properly close the connection
+            window.addEventListener("beforeunload", () => {
+                if (ws && isConnected) {
+                    ws.close();
+                }
+            });
+        </script>
+    </body>
+</html>

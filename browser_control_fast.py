@@ -273,9 +273,11 @@ class HandRecognizer:
 
     def detect_thumbs_down(self):
         """
+        Detect thumbs down gesture
 
+        Returns:
+        bool: True if thumbs down detected
         """
-
         if self.hand_result is None:
             return False
 
@@ -363,6 +365,9 @@ class BrowserController:
             Gest.V_GEST: self.refresh_page
         }
 
+        # For tracking last detected gesture
+        self.last_detected_gesture = None
+
         # Cooldown for actions to prevent multiple triggers
         self.last_action_time = 0
         self.action_cooldown = 1.0  # seconds
@@ -370,29 +375,9 @@ class BrowserController:
     def detect_browser(self):
         """
         Detect which browser is currently active to use appropriate shortcuts
-
-        try:
-            # This uses pyautogui to get the active window title
-            # Note: requires pygetwindow package
-            active_window = gw.getActiveWindow()
-            if active_window:
-                title = active_window.title.lower()
-
-                # Check for common browser names in the window title
-                if 'chrome' in title:
-                    return 'chrome'
-                elif 'firefox' in title:
-                    return 'firefox'
-                elif 'edge' in title:
-                    return 'edge'
-                elif 'safari' in title:
-                    return 'safari'
-                else:
-                    return 'unknown'
-        except:
-            # If we can't determine the browser, default to common shortcuts
-
         """
+        # This is a simplified version as the original depends on OS-specific libraries
+        # In a web-based version, we can't reliably detect the active browser
         return 'unknown'
 
     def test_browser_actions(self):
@@ -419,10 +404,7 @@ class BrowserController:
         """Navigate back in browser history"""
         print("Action: Going back - sending Alt+Left")
         try:
-                # Alternative methods
             pyautogui.hotkey('alt', 'left')
-                # If that doesn't work, try browser-specific shortcuts
-                # pyautogui.hotkey('backspace')  # Alternative for some browsers
         except Exception as e:
             print(f"Error executing back command: {e}")
 
@@ -431,7 +413,6 @@ class BrowserController:
         print("Action: Going forward - sending Alt+Right")
         try:
             pyautogui.hotkey('alt', 'right')
-                # Alternative: pyautogui.hotkey('shift', 'backspace')
         except Exception as e:
             print(f"Error executing forward command: {e}")
 
@@ -449,7 +430,6 @@ class BrowserController:
         """Open a new tab"""
         print("Action: Opening new tab - sending Ctrl+T")
         try:
-                # Try pressing keys with slight delay between them
             pyautogui.keyDown('ctrl')
             pyautogui.press('t')
             pyautogui.keyUp('ctrl')
@@ -470,29 +450,11 @@ class BrowserController:
         """Refresh the current page"""
         print("Action: Refreshing page - sending ctrl + R")
         try:
-                # Alternative:
             pyautogui.keyDown('ctrl')
             pyautogui.press('r')
             pyautogui.keyUp('ctrl')
         except Exception as e:
             print(f"Error refreshing page: {e}")
-
-    def zoom_in(self):
-        """
-           Zoom in on the page
-        """
-        print("Action: Zooming In")
-        pyautogui.hotkey('ctrl', '+')
-
-    def zoom_out(self):
-        """Zoom out on the page"""
-        print("Action: Zooming out")
-        pyautogui.hotkey('ctrl', '-')
-
-    def switch_tab(self):
-        """Switch to the next tab"""
-        print("Action: Switching to next tab")
-        pyautogui.hotkey('ctrl', 'tab')
 
     def execute_gesture_action(self, gesture):
         """
@@ -512,28 +474,12 @@ class BrowserController:
 
         if gesture in self.gesture_actions:
             try:
-                if gesture in [Gest.SWIPE_LEFT, Gest.SWIPE_RIGHT, Gest.THUMBS_UP,
-                                          Gest.THUMBS_DOWN, Gest.V_GEST]:
-
-                    browser = self.detect_browser()
-                    if browser == 'unknown':
-                        print("Warning: No browser detected for browser-specific action")
-                                    # Could display a notification to the user here
-
-            # Execute the action associated with the gesture
+                # Execute the action associated with the gesture
                 self.gesture_actions[gesture]()
                 self.last_action_time = current_time
                 return True
             except Exception as e:
                 print(f"Error executing action: {e}")
-
-                if hasattr(self, f"{gesture.name.lower()}_fallback"):
-                    try:
-                        getattr(self, f"{gesture.name.lower()}_fallback")()
-                        return True
-                    except:
-                        return False
-
                 return False
 
         return False
@@ -583,111 +529,8 @@ class BrowserController:
                         if detected_gesture is None or detected_gesture == Gest.PALM:
                             detected_gesture = minor_gesture
 
+        # Update last detected gesture
+        if detected_gesture:
+            self.last_detected_gesture = detected_gesture
+
         return detected_gesture
-
-    def run(self):
-        """Run the browser controller with webcam input"""
-        # Initialize webcam
-        cap = cv2.VideoCapture(0)
-
-        # Check if the webcam is opened correctly
-        if not cap.isOpened():
-            print("Error: Could not open webcam.")
-            return
-
-        print("Browser control started. Press 'q' to quit.")
-        print("Available gestures:")
-        print("- Swipe left: Go back")
-        print("- Swipe right: Go forward")
-        print("- Swipe up: Scroll up")
-        print("- Swipe down: Scroll down")
-        print("- Thumbs up: New tab")
-        print("- Thumbs down: Close tab")
-        print("- V gesture: Refresh page")
-
-        # Initialize MediaPipe Hands
-        with mp_hands.Hands(
-            max_num_hands=2,
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5
-        ) as hands:
-            while self.running:
-                # Capture frame-by-frame
-                ret, frame = cap.read()
-
-                if not ret:
-                    print("Error: Failed to capture image")
-                    break
-
-                # Flip the image horizontally for a more natural feel
-                frame = cv2.flip(frame, 1)
-
-                # Convert BGR to RGB
-                rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-                # Process the frame with MediaPipe Hands
-                results = hands.process(rgb_frame)
-
-                # Process hand landmarks and get detected gestures
-                detected_gesture = self.process_hands(results)
-
-                # Draw hand landmarks on the frame
-                if results.multi_hand_landmarks:
-                    for hand_landmarks in results.multi_hand_landmarks:
-                        mp_drawing.draw_landmarks(
-                            frame,
-                            hand_landmarks,
-                            mp_hands.HAND_CONNECTIONS
-                        )
-
-                # Execute action if a gesture is detected
-                if detected_gesture:
-                    success = self.execute_gesture_action(detected_gesture)
-                    if success:
-                        # Add a visual feedback (green rectangle around the frame)
-                        cv2.rectangle(frame, (0, 0), (frame.shape[1], frame.shape[0]), (0, 255, 0), 5)
-
-                        # Display the detected gesture
-                        gesture_name = str(detected_gesture).split('.')[1]
-                        cv2.putText(
-                            frame,
-                            f"Gesture: {gesture_name}",
-                            (10, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            1,
-                            (0, 255, 0),
-                            2
-                        )
-
-                # Display the system status
-                cv2.putText(
-                    frame,
-                    "Browser Control Active",
-                    (10, frame.shape[0] - 20),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,
-                    (0, 255, 0),
-                    2
-                )
-
-                # Display the frame
-                cv2.imshow('Browser Gesture Control', frame)
-
-                # Break the loop if 'q' is pressed
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    self.running = False
-
-        # Release resources
-        cap.release()
-        cv2.destroyAllWindows()
-        print("Browser control stopped.")
-
-
-def main():
-    """Main function to run the browser controller"""
-    controller = BrowserController()
-    controller.run()
-
-
-if __name__ == "__main__":
-    main()
